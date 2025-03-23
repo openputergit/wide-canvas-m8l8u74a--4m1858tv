@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic QR Code Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+    </style>
+</head>
+<body class="bg-[#f0f7f7] min-h-screen">
+    <div id="authContainer" class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-center text-[#2b6777] mb-6">QR Code Generator</h2>
+            
+            <div class="space-y-4">
+                <div class="flex justify-center space-x-4">
+                    <button onclick="setAuthMethod('email')" class="px-4 py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">Email Login</button>
+                    <button onclick="setAuthMethod('phone')" class="px-4 py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">Phone Login</button>
+                </div>
+                
+                <div id="authForm" class="space-y-4">
+                    <!-- Auth form will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainContainer" class="container mx-auto px-4 py-8 hidden">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <h2 class="text-2xl font-bold text-[#2b6777]">Create QR Code</h2>
+                        <div class="space-y-2">
+                            <input type="text" id="qrContent" placeholder="Enter content for QR code" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2b6777]">
+                            <select id="qrSize" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2b6777]">
+                                <option value="150">Small (150x150)</option>
+                                <option value="250" selected>Medium (250x250)</option>
+                                <option value="350">Large (350x350)</option>
+                            </select>
+                        </div>
+                        <button onclick="generateQR()" class="w-full py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">Generate QR Code</button>
+                    </div>
+                    
+                    <div class="flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg">
+                        <div id="qrOutput" class="flex items-center justify-center min-h-[250px]">
+                            <p class="text-gray-500">Your QR code will appear here</p>
+                        </div>
+                        <button id="downloadBtn" onclick="downloadQR()" class="mt-4 px-4 py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition hidden">
+                            Download QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-[#2b6777] mb-4">Choose Your Plan</h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="border rounded-lg p-6 hover:shadow-lg transition">
+                        <h4 class="text-lg font-semibold mb-2">Basic Plan</h4>
+                        <ul class="space-y-2 mb-4">
+                            <li><i class="bi bi-check-circle text-green-500"></i> Basic QR Code Generation</li>
+                            <li><i class="bi bi-check-circle text-green-500"></i> Standard Sizes</li>
+                            <li><i class="bi bi-check-circle text-green-500"></i> Download as PNG</li>
+                        </ul>
+                        <button class="w-full py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">Free</button>
+                    </div>
+                    <div class="border rounded-lg p-6 hover:shadow-lg transition">
+                        <h4 class="text-lg font-semibold mb-2">Premium Plan</h4>
+                        <ul class="space-y-2 mb-4">
+                            <li><i class="bi bi-check-circle text-green-500"></i> Custom Colors & Styles</li>
+                            <li><i class="bi bi-check-circle text-green-500"></i> Analytics & Tracking</li>
+                            <li><i class="bi bi-check-circle text-green-500"></i> Bulk Generation</li>
+                            <li><i class="bi bi-check-circle text-green-500"></i> Advanced Formats</li>
+                        </ul>
+                        <button class="w-full py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">$9.99/month</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAuthMethod = 'email';
+        let verificationCode = '';
+
+        function setAuthMethod(method) {
+            currentAuthMethod = method;
+            const authForm = document.getElementById('authForm');
+            authForm.innerHTML = `
+                <input type="${method === 'email' ? 'email' : 'tel'}" 
+                    id="authInput" 
+                    placeholder="${method === 'email' ? 'Enter your email' : 'Enter your phone number'}"
+                    class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2b6777]">
+                <button onclick="sendOTP()" 
+                    class="w-full py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">
+                    Send OTP
+                </button>
+            `;
+        }
+
+        function sendOTP() {
+            const authInput = document.getElementById('authInput').value;
+            if (!authInput) {
+                alert('Please enter your ' + currentAuthMethod);
+                return;
+            }
+
+            // Simulate OTP generation
+            verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            const authForm = document.getElementById('authForm');
+            authForm.innerHTML = `
+                <div class="text-center mb-4">
+                    OTP sent to ${authInput}
+                </div>
+                <input type="text" 
+                    id="otpInput" 
+                    placeholder="Enter 6-digit OTP"
+                    maxlength="6"
+                    class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2b6777]">
+                <button onclick="verifyOTP()" 
+                    class="w-full py-2 bg-[#2b6777] text-white rounded-lg hover:bg-[#1e4f5f] transition">
+                    Verify OTP
+                </button>
+            `;
+
+            // In a real application, you would send the OTP to the user's email or phone
+            console.log('Generated OTP:', verificationCode);
+        }
+
+        function verifyOTP() {
+            const otpInput = document.getElementById('otpInput').value;
+            if (otpInput === verificationCode) {
+                document.getElementById('authContainer').classList.add('hidden');
+                document.getElementById('mainContainer').classList.remove('hidden');
+            } else {
+                alert('Invalid OTP. Please try again.');
+            }
+        }
+
+        function generateQR() {
+            const content = document.getElementById('qrContent').value;
+            const size = document.getElementById('qrSize').value;
+            
+            if (!content) {
+                alert('Please enter content for the QR code');
+                return;
+            }
+
+            const qr = qrcode(0, 'L');
+            qr.addData(content);
+            qr.make();
+
+            const qrOutput = document.getElementById('qrOutput');
+            qrOutput.innerHTML = qr.createImgTag(size/25);
+            
+            document.getElementById('downloadBtn').classList.remove('hidden');
+        }
+
+        function downloadQR() {
+            const qrImage = document.querySelector('#qrOutput img');
+            if (!qrImage) return;
+
+            const link = document.createElement('a');
+            link.download = 'qrcode.png';
+            link.href = qrImage.src;
+            link.click();
+        }
+
+        // Initialize with email auth form
+        setAuthMethod('email');
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
